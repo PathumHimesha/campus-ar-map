@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f6fd1">
+<title>UOC Science Faculty Navigation</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root{
+  --bg:#f3f6fa;--surface:#fff;--text:#14212e;--muted:#5d6b7a;--line:#e3e9ef;
+  --primary:#0f6fd1;--primary-text:#fff;--danger:#d63c3c;--shadow:0 6px 24px rgba(15,35,60,.16);
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+body.dark{
+  --bg:#10151b;--surface:#1a222b;--text:#e8eef4;--muted:#9aa8b6;--line:#2a343f;
+  --primary:#6cb2ff;--primary-text:#06223f;--danger:#ff7b7b;--shadow:0 6px 24px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+#map{position:fixed;inset:0;z-index:1}
+body.dark .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
+.leaflet-control-attribution{font-size:10px}
+
+/* Top area */
+.top{position:fixed;z-index:1000;left:0;right:0;top:0;padding:calc(var(--sat) + 12px) 12px 0;
+  max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.top>*{pointer-events:auto}
+.search{display:flex;align-items:center;background:var(--surface);border-radius:28px;box-shadow:var(--shadow);height:52px;padding:0 4px}
+.icon-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--muted);font-size:1.1rem;flex:none}
+.icon-btn:active{background:var(--line)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font-size:1rem;padding:0 4px}
+.search:focus-within{box-shadow:0 0 0 2px var(--primary),var(--shadow)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:38px;padding:0 14px;border-radius:19px;background:var(--surface);box-shadow:0 2px 8px rgba(15,35,60,.12);
+  font-size:.88rem;font-weight:600;display:flex;align-items:center;gap:6px}
+.chip[aria-pressed=true]{background:var(--primary);color:var(--primary-text)}
+.results{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:none;max-height:40vh;overflow-y:auto}
+.results.show{display:block}
+.result{width:100%;display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:52px;text-align:left;border-bottom:1px solid var(--line)}
+.result:last-child{border:0}
+.result:active,.result:hover{background:var(--bg)}
+.result small{display:block;color:var(--muted)}
+.result i{color:var(--primary);width:20px;text-align:center}
+.empty{padding:16px;color:var(--muted);text-align:center}
+
+/* Floating buttons */
+.fabs{position:fixed;z-index:1000;right:12px;display:flex;flex-direction:column;gap:10px;
+  bottom:calc(var(--sab) + var(--sheet-h,190px) + 14px);transition:bottom .25s}
+.fab{width:50px;height:50px;border-radius:50%;background:var(--surface);color:var(--primary);box-shadow:var(--shadow);display:grid;place-items:center;font-size:1.15rem}
+.fab.sos{background:var(--danger);color:#fff}
+.fab:active{transform:scale(.94)}
+
+/* Bottom sheet */
+.sheet{position:fixed;z-index:1000;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;background:var(--surface);
+  border-radius:24px 24px 0 0;box-shadow:0 -6px 28px rgba(15,35,60,.2);padding:10px 18px calc(var(--sab) + 18px)}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 12px}
+.dest{display:flex;align-items:center;gap:12px}
+.dest-ic{width:44px;height:44px;border-radius:12px;background:color-mix(in srgb,var(--primary) 14%,transparent);color:var(--primary);display:grid;place-items:center;font-size:1.2rem;flex:none}
+.dest h2{margin:0;font-size:1.1rem;line-height:1.25}
+.dest p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
+.stats{display:flex;align-items:baseline;gap:10px;margin:14px 0}
+.stats .time{font-size:1.7rem;font-weight:800;color:var(--primary)}
+.stats .dist{color:var(--muted);font-size:.95rem}
+.actions{display:flex;gap:10px}
+.btn{flex:1;min-height:50px;border-radius:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--primary);color:var(--primary-text)}
+.btn.ghost{background:var(--bg);flex:none;width:50px}
+.btn:active{transform:scale(.98)}
+
+/* Menu drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;opacity:0;visibility:hidden;transition:.25s}
+.scrim.show{opacity:1;visibility:visible}
+.drawer{position:fixed;z-index:2100;top:0;bottom:0;left:0;width:min(300px,85vw);background:var(--surface);
+  padding:calc(var(--sat) + 16px) 14px calc(var(--sab) + 16px);transform:translateX(-100%);transition:transform .28s;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.drawer.open{transform:none}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;font-size:1.2rem;font-weight:800;padding:0 6px 10px}
+.menu-item{display:flex;align-items:center;gap:14px;min-height:52px;padding:0 10px;border-radius:12px;width:100%;text-align:left;font-size:1rem}
+.menu-item:active,.menu-item:hover{background:var(--bg)}
+.menu-item i{width:22px;text-align:center;color:var(--primary)}
+.menu-item small{display:block;color:var(--muted);font-size:.78rem}
+.soon{margin-left:auto;font-size:.7rem;font-weight:700;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:10px}
+hr{border:0;border-top:1px solid var(--line);width:100%;margin:8px 0}
+
+/* Dialog + toast */
+dialog{border:0;border-radius:20px;padding:22px;width:min(380px,calc(100vw - 32px));background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h3{margin:0 0 8px;font-size:1.15rem}
+dialog p{margin:0 0 18px;color:var(--muted);line-height:1.5}
+.toast{position:fixed;z-index:3000;left:50%;top:calc(var(--sat) + 80px);transform:translate(-50%,-20px);background:var(--text);color:var(--bg);
+  padding:10px 16px;border-radius:20px;font-size:.9rem;opacity:0;transition:.25s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* Markers */
+.pin{display:grid;place-items:center;width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--danger);color:#fff;box-shadow:0 3px 8px rgba(0,0,0,.35);border:2px solid #fff}
+.pin i{transform:rotate(45deg);font-size:.8rem}
+.pin.active{background:var(--primary);width:40px;height:40px}
+.me{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgba(26,115,232,.25)}
+
+@media (min-width:700px){
+  .top{left:16px;margin:0}.sheet{left:16px;margin:0;border-radius:24px;bottom:16px}
+  .fabs{bottom:calc(var(--sheet-h,190px) + 40px)}
+}
+@media (max-height:520px){.sheet{padding-bottom:10px}.stats{margin:8px 0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+[hidden]{display:none!important}
+.sheet{max-height:75dvh;overflow-y:auto}
+body.exp .fabs{display:none}
+.grab-btn{display:block;width:100%;height:26px;margin:-8px 0 0}
+.grab-btn .grab{display:block;margin:8px auto}
+.dest-t{flex:1;min-width:0}
+.modes{display:flex;background:var(--bg);border-radius:12px;padding:3px;margin-top:12px}
+.modes button{flex:1;min-height:40px;border-radius:10px;font-weight:600;font-size:.9rem;display:flex;gap:6px;align-items:center;justify-content:center;color:var(--muted)}
+.modes button[aria-pressed=true]{background:var(--surface);color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.stats{align-items:center}
+.badge{margin-left:auto;font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:12px}
+.badge.open{background:#1f9d5522;color:#1f9d55}.badge.closed{background:#d63c3c22;color:var(--danger)}
+.more{display:none}.sheet.expanded .more{display:block}
+.steps{margin:0 0 14px;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.steps li{display:flex;gap:12px;align-items:center;font-size:.95rem}
+.steps i{width:30px;height:30px;border-radius:50%;background:var(--bg);color:var(--primary);display:grid;place-items:center;font-size:.8rem;flex:none}
+.result em{margin-left:auto;font-style:normal;color:var(--muted);font-size:.85rem}
+.fab.sos{animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(214,60,60,.6)}70%{box-shadow:0 0 0 12px rgba(214,60,60,0)}100%{box-shadow:0 0 0 0 rgba(214,60,60,0)}}
+</style>
+</head>
+<body>
+<div id="map" aria-label="Campus map"></div>
+
+<div class="top">
+  <div class="search" role="search">
+    <button class="icon-btn" id="menuBtn" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+    <input id="q" type="search" placeholder="Search UOC Science Faculty" autocomplete="off" aria-label="Search places">
+    <button class="icon-btn" id="clearBtn" aria-label="Clear search" hidden><i class="fas fa-xmark"></i></button>
+  </div>
+  <div class="chips" id="chips" role="group" aria-label="Filter places">
+    <button class="chip" data-cat="all" aria-pressed="true">All</button>
+    <button class="chip" data-cat="lab" aria-pressed="false"><i class="fas fa-flask"></i>Labs</button>
+    <button class="chip" data-cat="hall" aria-pressed="false"><i class="fas fa-chalkboard-user"></i>Lecture halls</button>
+    <button class="chip" data-cat="food" aria-pressed="false"><i class="fas fa-utensils"></i>Canteens</button>
+    <button class="chip" data-cat="svc" aria-pressed="false"><i class="fas fa-circle-info"></i>Services</button>
+    <button class="chip" data-cat="fav" aria-pressed="false"><i class="fas fa-star"></i>Saved</button>
+  </div>
+  <div class="results" id="results" role="listbox"></div>
+</div>
+
+<div class="fabs">
+  <button class="fab sos" id="sosBtn" aria-label="Emergency SOS"><i class="fas fa-phone-alt"></i></button>
+  <button class="fab" id="locBtn" aria-label="Centre on my location"><i class="fas fa-crosshairs"></i></button>
+</div>
+
+<section class="sheet" id="sheet" aria-live="polite">
+  <button class="grab-btn" id="grabBtn" aria-expanded="false" aria-label="Show route details"><span class="grab"></span></button>
+  <div class="dest">
+    <div class="dest-ic"><i class="fas fa-building" id="destIcon"></i></div>
+    <div class="dest-t"><h2 id="destName"></h2><p id="destSub"></p></div>
+    <button class="icon-btn" id="favBtn" aria-label="Save place"><i class="fa-regular fa-star"></i></button>
+    <button class="icon-btn" id="shareBtn" aria-label="Share place"><i class="fas fa-share-nodes"></i></button>
+  </div>
+  <div class="modes" role="group" aria-label="Route type">
+    <button data-m="walk" aria-pressed="true"><i class="fas fa-person-walking"></i>Walking</button>
+    <button data-m="acc" aria-pressed="false"><i class="fas fa-wheelchair"></i>Step-free</button>
+  </div>
+  <div class="stats"><span class="time" id="time"></span><span class="dist" id="dist"></span><span class="badge" id="status"></span></div>
+  <div class="more"><ol class="steps" id="steps"></ol></div>
+  <div class="actions">
+    <button class="btn primary" id="arBtn"><i class="fas fa-cube"></i>Start AR navigation</button>
+    <button class="btn ghost" id="fitBtn" aria-label="Show full route"><i class="fas fa-route"></i></button>
+  </div>
+</section>
+
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+  <div class="drawer-head">Menu <button class="icon-btn" id="closeMenu" aria-label="Close menu"><i class="fas fa-xmark"></i></button></div>
+  <button class="menu-item" id="darkBtn"><i class="fas fa-moon"></i><span>Dark mode</span></button>
+  <hr>
+  <button class="menu-item" data-feature="AR campus tour|Explore key locations around campus in AR and collect badges."><i class="fas fa-map-signs"></i><span>AR campus tour</span><span class="soon">Soon</span></button>
+  <button class="menu-item" data-feature="Timetable sync|Sync your lecture schedule and get routed to your next class automatically."><i class="fas fa-calendar-check"></i><span>Timetable sync</span><span class="soon">Soon</span></button>
+  <button class="menu-item" id="accBtn"><i class="fas fa-wheelchair"></i><span>Step-free routes<small id="accState">Off</small></span></button>
+  <hr>
+  <button class="menu-item" data-feature="Settings|Settings will be available in the next release."><i class="fas fa-gear"></i><span>Settings</span></button>
+</nav>
+
+<dialog id="dlg"><h3 id="dlgTitle"></h3><p id="dlgText"></p><a class="btn" id="dlgCall" href="tel:1990" hidden style="background:var(--danger);color:#fff;text-decoration:none;margin-bottom:8px"><i class="fas fa-phone"></i>Call ambulance 1990</a><button class="btn primary" id="dlgOk" style="width:100%">Got it</button></dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const MAIN_GATE=[6.8988,79.8580];let ME=MAIN_GATE,gps=false,accessible=false,gpsOn=false;
+const PLACES = [
+  {id:'phy', name:'Department of Physics',  sub:'Science Faculty',  cat:'lab', ll:[6.8998,79.8587], icon:'atom',h:[8,17]},
+  {id:'chem',name:'Department of Chemistry',sub:'Science Faculty',  cat:'lab', ll:[6.9005,79.8590], icon:'flask',h:[8,17]},
+  {id:'lha', name:'Lecture Hall A',         sub:'Ground floor',     cat:'hall',ll:[6.8996,79.8595], icon:'chalkboard-user',h:[8,18]},
+  {id:'lhb', name:'Lecture Hall B',         sub:'First floor',      cat:'hall',ll:[6.9002,79.8583], icon:'chalkboard-user',h:[8,18]},
+  {id:'ncsu',name:'NCSU Canteen',           sub:'Food & drinks',    cat:'food',ll:[6.8993,79.8592], icon:'utensils',h:[7,18]},
+  {id:'lib', name:'Science Library',        sub:'Study & books',    cat:'svc', ll:[6.9000,79.8597], icon:'book',h:[8,20]},
+  {id:'med', name:'Medical Centre',         sub:'First aid',        cat:'svc', ll:[6.8984,79.8589], icon:'house-medical',h:[8,20]},
+  {id:'sec', name:'Security Post',          sub:'Open 24 hours',    cat:'svc', ll:[6.8989,79.8583], icon:'shield-halved',h:[0,24]},
+];
+const bounds = [[6.8970,79.8565],[6.9025,79.8615]];
+const map = L.map('map',{center:[6.8995,79.8590],zoom:17,minZoom:16,maxZoom:19,maxBounds:bounds,maxBoundsViscosity:1,zoomControl:false});
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+document.querySelector('.leaflet-top.leaflet-right').style.top='calc(env(safe-area-inset-top,0px) + 130px)';
+
+const meMarker=L.marker(ME,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18]})}).addTo(map).bindPopup('<b>You are here</b>');
+let route = L.polyline([],{color:'#1a73e8',weight:6,opacity:.9,dashArray:'10 10'}).addTo(map);
+let current = null, filter = 'all';
+
+PLACES.forEach(p=>{
+  p.marker = L.marker(p.ll).addTo(map).on('click',()=>select(p,false));
+});
+function pinIcon(p,active){
+  return L.divIcon({className:'',html:`<div class="pin${active?' active':''}"><i class="fas fa-${p.icon}"></i></div>`,iconSize:[36,36],iconAnchor:[8,36]});
+}
+function refreshPins(){PLACES.forEach(p=>p.marker.setIcon(pinIcon(p,p===current)));}
+
+const DIRS=['north','north-east','east','south-east','south','south-west','west','north-west'];
+function bearing(a,b){const r=Math.PI/180,dl=(b[1]-a[1])*r;return(Math.atan2(Math.sin(dl)*Math.cos(b[0]*r),Math.cos(a[0]*r)*Math.sin(b[0]*r)-Math.sin(a[0]*r)*Math.cos(b[0]*r)*Math.cos(dl))/r+360)%360;}
+function dist(p){return Math.round(map.distance(ME,p.ll)*(accessible?1.5:1.25)/10)*10;}
+const fmt=h=>(h%12||12)+(h<12?' AM':' PM');
+function plan(){
+  const p=current,d=dist(p),mins=Math.max(1,Math.round(d/(accessible?60:80))),k=accessible?1:-1;
+  $('destName').textContent=p.name;$('destSub').textContent=p.sub;$('destIcon').className='fas fa-'+p.icon;
+  $('time').textContent=mins+' min';$('dist').textContent=d+' m';
+  const mid=[ME[0]+(p.ll[0]-ME[0])*.5-k*.00016,ME[1]+(p.ll[1]-ME[1])*.5+k*.00016];
+  route.setLatLngs([ME,mid,p.ll]);route.setStyle({color:accessible?'#1f9d55':'#1a73e8',dashArray:accessible?null:'10 10'});
+  const dir=DIRS[Math.round(bearing(ME,p.ll)/45)%8];
+  $('steps').innerHTML=[['arrow-up',`Head ${dir} from ${gps?'your location':'Main Gate'}`],
+    [accessible?'wheelchair':'person-walking',(accessible?'Follow the ramp and lift path':'Continue straight')+` · ${Math.round(d*.6)} m`],
+    ['flag-checkered',`Arrive at ${p.name}`]].map(s=>`<li><i class="fas fa-${s[0]}"></i><span>${s[1]}</span></li>`).join('');
+  const hr=new Date().getHours(),open=hr>=p.h[0]&&hr<p.h[1],b=$('status');
+  b.className='badge '+(open?'open':'closed');
+  b.textContent=p.h[1]-p.h[0]===24?'Open 24 h':open?'Open · until '+fmt(p.h[1]):'Closed · opens '+fmt(p.h[0]);
+  $('favBtn').firstElementChild.className=(favs.has(p.id)?'fas':'fa-regular')+' fa-star';
+  refreshPins();setTimeout(sizeSheet,0);
+}
+function select(p,fly=true){
+  current=p;plan();closeResults();q.blur();
+  if(fly)map.flyToBounds(L.latLngBounds([ME,p.ll]),{padding:[60,60],maxZoom:18,duration:.8});
+}
+
+/* Search + filter */
+const q = $('q');
+function matches(){
+  const t = q.value.trim().toLowerCase();
+  return PLACES.filter(p=>inFilter(p)&&(!t||p.name.toLowerCase().includes(t)||p.sub.toLowerCase().includes(t))).sort((a,b)=>dist(a)-dist(b));
+}
+function showResults(){
+  const list = matches(), box = $('results');
+  box.innerHTML = list.length ? list.map(p=>`<button class="result" role="option" data-id="${p.id}"><i class="fas fa-${p.icon}"></i><span>${p.name}<small>${p.sub}</small></span><em>${dist(p)} m</em></button>`).join('')
+    : '<div class="empty">No places found. Try another name.</div>';
+  box.classList.add('show');
+}
+function closeResults(){$('results').classList.remove('show');}
+function applyFilter(){
+  PLACES.forEach(p=>{const on=inFilter(p); on?p.marker.addTo(map):p.marker.remove();});
+}
+q.addEventListener('focus',showResults);
+q.addEventListener('input',()=>{$('clearBtn').hidden=!q.value;showResults();});
+$('clearBtn').onclick=()=>{q.value='';$('clearBtn').hidden=true;q.focus();};
+$('results').addEventListener('click',e=>{const b=e.target.closest('.result');if(b)select(PLACES.find(p=>p.id===b.dataset.id));});
+document.addEventListener('click',e=>{if(!e.target.closest('.search,.results'))closeResults();});
+$('chips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip');if(!c)return;
+  filter=c.dataset.cat;
+  document.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',x===c));
+  applyFilter(); if(document.activeElement===q||q.value)showResults();
+  if(filter!=='all'){const l=matches();if(l.length)select(l[0]);else toast('No places in this category yet');}
+});
+
+/* Drawer */
+function menu(open){$('drawer').classList.toggle('open',open);$('scrim').classList.toggle('show',open);}
+$('menuBtn').onclick=()=>menu(true);$('closeMenu').onclick=()=>menu(false);$('scrim').onclick=()=>menu(false);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){menu(false);closeResults();}});
+function setDark(on){
+  document.body.classList.toggle('dark',on);
+  document.querySelector('meta[name=theme-color]').content=on?'#10151b':'#0f6fd1';
+  try{localStorage.setItem('uoc-dark',on?'1':'0');}catch(e){}
+}
+$('darkBtn').onclick=()=>{setDark(!document.body.classList.contains('dark'));menu(false);};
+let saved=null;try{saved=localStorage.getItem('uoc-dark');}catch(e){}
+setDark(saved!==null?saved==='1':matchMedia('(prefers-color-scheme:dark)').matches);
+
+/* Dialogs & toast */
+function dialog(t,msg,tel){$('dlgTitle').textContent=t;$('dlgText').textContent=msg;$('dlgCall').hidden=!tel;$('dlg').showModal();}
+$('dlgOk').onclick=()=>$('dlg').close();
+document.querySelectorAll('[data-feature]').forEach(b=>b.onclick=()=>{const [t,m]=b.dataset.feature.split('|');menu(false);dialog(t,m+(b.querySelector('.soon')?' This feature is coming in a future update.':''));});
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* Actions */
+$('locBtn').onclick=locate;
+$('fitBtn').onclick=()=>current&&map.flyToBounds(L.latLngBounds([ME,current.ll]),{padding:[60,60],maxZoom:18});
+$('arBtn').onclick=()=>dialog('AR navigation','Camera view with 3D arrows and building info cards is coming in a future update.');
+$('sosBtn').onclick=()=>{
+  const t=PLACES.filter(p=>p.id==='med'||p.id==='sec').sort((a,b)=>dist(a)-dist(b))[0];
+  setMode(false);select(t);
+  dialog('Emergency SOS',`Routing you to the nearest help: ${t.name}, about ${dist(t)} m away. In an emergency, call ambulance 1990 or police 119.`,true);
+};
+
+/* Keep floating buttons above the sheet */
+function sizeSheet(){document.documentElement.style.setProperty('--sheet-h',$('sheet').offsetHeight+'px');}
+addEventListener('resize',sizeSheet);
+/* ---- Advanced features ---- */
+let favs=new Set();try{favs=new Set(JSON.parse(localStorage.getItem('uoc-favs')||'[]'));}catch(e){}
+function inFilter(p){return filter==='all'||(filter==='fav'?favs.has(p.id):p.cat===filter);}
+$('favBtn').onclick=()=>{
+  favs.has(current.id)?favs.delete(current.id):favs.add(current.id);
+  try{localStorage.setItem('uoc-favs',JSON.stringify([...favs]));}catch(e){}
+  toast(favs.has(current.id)?'Saved to your places':'Removed from saved');plan();applyFilter();
+};
+$('shareBtn').onclick=async()=>{
+  const p=current,url=`https://www.openstreetmap.org/?mlat=${p.ll[0]}&mlon=${p.ll[1]}#map=19/${p.ll[0]}/${p.ll[1]}`;
+  try{if(navigator.share)await navigator.share({title:p.name,text:'Meet me at '+p.name,url});
+      else{await navigator.clipboard.writeText(url);toast('Link copied');}}catch(e){}
+};
+function setMode(on){
+  accessible=on;
+  document.querySelectorAll('.modes button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.m==='acc')===on));
+  $('accState').textContent=on?'On':'Off';
+  current&&plan();
+}
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m==='acc'));
+$('accBtn').onclick=()=>{setMode(!accessible);menu(false);toast(accessible?'Step-free routes on':'Step-free routes off');};
+$('grabBtn').onclick=()=>{
+  const x=$('sheet').classList.toggle('expanded');
+  document.body.classList.toggle('exp',x);$('grabBtn').setAttribute('aria-expanded',x);setTimeout(sizeSheet,0);
+};
+const campus=L.latLngBounds(bounds).pad(1);
+function startGPS(){
+  if(!navigator.geolocation){toast('Location is not available. Starting from Main Gate');return;}
+  navigator.geolocation.watchPosition(pos=>{
+    const ll=[pos.coords.latitude,pos.coords.longitude],inside=campus.contains(ll);
+    if(!inside&&!gps)return;
+    gps=inside;ME=inside?ll:MAIN_GATE;meMarker.setLatLng(ME);current&&plan();
+  },()=>toast('Location is off. Starting from Main Gate'),{enableHighAccuracy:true,maximumAge:5000});
+}
+function locate(){
+  if(!gpsOn){gpsOn=true;startGPS();}
+  if(!gps)toast('Using Main Gate as your start. Move on campus for live location');
+  map.flyTo(ME,18,{duration:1});
+}
+q.addEventListener('keydown',e=>{if(e.key==='Enter'){const l=matches();if(l.length)select(l[0]);}});
+select(PLACES[0],false);
+sizeSheet();
+</script>
+</body>
+</html>
