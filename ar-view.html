@@ -1,60 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NSBM AR Navigation</title>
-    <!-- A-Frame and AR.js Libraries -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <style>
-        .ui-panel {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9); padding: 12px 25px; border-radius: 20px;
-            text-align: center; font-family: sans-serif; font-weight: bold; z-index: 9999;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 80%; max-width: 350px;
-            color: #14212e;
-        }
-        .back-btn {
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: #d63c3c; color: white; border: none; padding: 16px 35px;
-            border-radius: 30px; font-size: 1.1rem; font-weight: bold; z-index: 9999;
-            font-family: sans-serif; box-shadow: 0 6px 20px rgba(214, 60, 60, 0.4);
-            cursor: pointer;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>AR Navigation</title>
+<script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+<style>
+:root{--surface:#fff;--text:#14212e;--muted:#5d6b7a;--line:#e3e9ef;--bg:#f3f6fa;--primary:#0f6fd1;--primary-text:#fff;--danger:#d63c3c;--ok:#1f9d55;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--shadow:0 6px 24px rgba(0,0,0,.28)}
+body.dark{--surface:#1a222b;--text:#e8eef4;--muted:#9aa8b6;--line:#2a343f;--bg:#10151b;--primary:#6cb2ff;--primary-text:#06223f;--danger:#ff7b7b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--text)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+[hidden]{display:none!important}
+a-scene{position:fixed!important;inset:0}
+.glass{background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:var(--shadow)}
+
+/* Top card */
+.top{position:fixed;z-index:50;left:0;right:0;top:0;padding:calc(var(--sat) + 12px) 12px 0;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.card{display:flex;align-items:center;gap:12px;border-radius:20px;padding:12px 14px}
+.compass{width:56px;height:56px;border-radius:50%;background:var(--bg);display:grid;place-items:center;flex:none;position:relative;border:2px solid var(--line)}
+.compass i{display:block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:26px solid var(--primary);transition:transform .25s linear}
+.info{flex:1;min-width:0}
+.info h1{margin:0;font-size:1rem;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.info p{margin:2px 0 0;color:var(--muted);font-size:.85rem}
+.dist{text-align:right}
+.dist b{display:block;font-size:1.6rem;line-height:1;color:var(--primary)}
+.dist span{font-size:.8rem;color:var(--muted)}
+.hint{align-self:center;border-radius:22px;padding:10px 18px;font-weight:700;font-size:.95rem;display:flex;gap:8px;align-items:center}
+.hint.ok{background:var(--ok);color:#fff}
+
+/* Bottom bar */
+.bottom{position:fixed;z-index:50;left:0;right:0;bottom:0;padding:12px 12px calc(var(--sab) + 16px);max-width:520px;margin:0 auto;display:flex;gap:10px}
+.btn{min-height:54px;border-radius:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 20px}
+.btn.end{flex:1;background:var(--danger);color:#fff;box-shadow:0 6px 20px rgba(214,60,60,.4)}
+.btn.sq{width:54px;padding:0;font-size:1.1rem;color:var(--primary)}
+.btn:active{transform:scale(.97)}
+.gps{font-size:.75rem;color:var(--muted);text-align:center}
+
+/* Start / error overlay */
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(8,14,22,.78);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+.sheet{width:min(400px,100%);background:var(--surface);border-radius:24px;padding:26px 22px;text-align:center;box-shadow:var(--shadow)}
+.sheet .ic{width:64px;height:64px;border-radius:18px;margin:0 auto 14px;display:grid;place-items:center;font-size:1.7rem;background:color-mix(in srgb,var(--primary) 14%,transparent);color:var(--primary)}
+.sheet h2{margin:0 0 6px;font-size:1.25rem}
+.sheet p{margin:0 0 18px;color:var(--muted);line-height:1.5;font-size:.95rem}
+.sheet ul{list-style:none;padding:0;margin:0 0 20px;text-align:left;display:flex;flex-direction:column;gap:10px;font-size:.92rem}
+.sheet li{display:flex;gap:12px;align-items:center}
+.sheet li span{width:30px;height:30px;border-radius:50%;background:var(--bg);display:grid;place-items:center;flex:none}
+.sheet .btn{width:100%;background:var(--primary);color:var(--primary-text)}
+.sheet .link{display:block;margin-top:10px;color:var(--muted);font-weight:600;min-height:44px;line-height:44px}
+@media (max-height:520px){.sheet ul{display:none}.hint{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
 </head>
-<body style="margin: 0; overflow: hidden;">
+<body>
 
-    <!-- Top Info Panel -->
-    <div class="ui-panel">
-        📷 AR Navigation Active<br>
-        <span style="font-size:0.85rem; color:#5d6b7a; font-weight: normal;">Look around to find your destination</span>
-    </div>
+<a-scene embedded vr-mode-ui="enabled:false" renderer="alpha:true" arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;">
+  <a-entity id="pivot" rotation="0 0 0">
+    <a-entity position="0 0 -4" animation="property: position; to: 0 0.35 -4; dir: alternate; dur: 1200; easing: easeInOutSine; loop: true">
+      <a-cone position="0 0 -0.5" radius-bottom="0.45" radius-top="0" height="0.8" color="#0f6fd1" rotation="-90 0 0"></a-cone>
+      <a-cylinder position="0 0 0.3" radius="0.16" height="1" color="#0f6fd1" rotation="-90 0 0"></a-cylinder>
+      <a-ring position="0 -0.55 0" rotation="-90 0 0" radius-inner="0.7" radius-outer="0.85" color="#ffffff" opacity="0.7"></a-ring>
+      <a-entity id="label" position="0 1.3 0">
+        <a-text id="labelText" value="" align="center" color="#ffffff" width="5" position="0 0 0.01"></a-text>
+        <a-plane width="3.8" height="0.6" color="#14212e" opacity="0.85"></a-plane>
+      </a-entity>
+    </a-entity>
+  </a-entity>
+  <a-camera position="0 1.6 0"></a-camera>
+</a-scene>
 
-    <!-- Exit Button -->
-    <button class="back-btn" onclick="window.location.href='index.html'">
-        End AR Route
-    </button>
+<header class="top" id="hud" hidden>
+  <div class="card glass">
+    <div class="compass" aria-hidden="true"><i id="needle"></i></div>
+    <div class="info"><h1 id="dName">Destination</h1><p id="dSub">Walking</p></div>
+    <div class="dist"><b id="dDist">--</b><span>metres</span></div>
+  </div>
+  <div class="hint glass" id="hint" role="status" aria-live="polite"><i class="fas"></i><span id="hintText">Point your camera around</span></div>
+</header>
 
-    <!-- AR Scene -->
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;">
-        
-        <!-- Floating 3D Arrow and Text -->
-        <a-entity position="0 1.5 -4" animation="property: position; to: 0 1.8 -4; dir: alternate; dur: 1200; loop: true">
-            <!-- 3D Cone (Arrow head) -->
-            <a-cone position="0 0.5 0" radius-bottom="0.4" radius-top="0" height="0.8" color="#0f6fd1" rotation="90 0 0"></a-cone>
-            <!-- 3D Cylinder (Arrow body) -->
-            <a-cylinder position="0 -0.2 0" radius="0.15" height="1" color="#0f6fd1" rotation="90 0 0"></a-cylinder>
-            
-            <!-- Floating Text Board -->
-            <a-text value="50m to Faculty of Computing" align="center" position="0 1.5 0" color="#ffffff" width="5" 
-                    geometry="primitive: plane; height: 0.5; width: 3.5" material="color: #14212e; opacity: 0.8; radius: 0.1">
-            </a-text>
-        </a-entity>
+<div class="bottom" id="bar" hidden>
+  <button class="btn sq glass" id="recal" aria-label="Recalibrate compass" title="Recalibrate">&#x21BB;</button>
+  <button class="btn end" id="endBtn">End AR route</button>
+</div>
 
-        <a-camera position="0 1.6 0"></a-camera>
-    </a-scene>
+<div class="overlay" id="intro">
+  <div class="sheet" role="dialog" aria-labelledby="introTitle">
+    <div class="ic">&#128247;</div>
+    <h2 id="introTitle">AR navigation</h2>
+    <p id="introMsg">Follow a 3D arrow to <b id="introDest"></b>. We need your camera, location and compass.</p>
+    <ul>
+      <li><span>&#128247;</span>Camera shows the path ahead</li>
+      <li><span>&#128205;</span>Location measures your distance</li>
+      <li><span>&#129517;</span>Compass points the arrow</li>
+    </ul>
+    <button class="btn" id="startBtn">Start AR</button>
+    <a class="link" href="index.html">Back to map</a>
+  </div>
+</div>
 
+<script>
+const $=id=>document.getElementById(id);
+try{const d=localStorage.getItem('uoc-dark');document.body.classList.toggle('dark',d!==null?d==='1':matchMedia('(prefers-color-scheme:dark)').matches);}catch(e){}
+
+const P=new URLSearchParams(location.search);
+const dest={name:P.get('name')||'Faculty of Computing',lat:parseFloat(P.get('lat')),lng:parseFloat(P.get('lng'))};
+const live=isFinite(dest.lat)&&isFinite(dest.lng);      // live mode needs ?lat=&lng= in the URL
+let pos=null,heading=null,base=null;
+$('dName').textContent=$('introDest').textContent=dest.name;
+$('dSub').textContent=live?'Walking route':'Demo mode (no coordinates given)';
+
+const R=Math.PI/180;
+function hav(a,b){const x=Math.sin((b.lat-a.lat)*R/2)**2+Math.cos(a.lat*R)*Math.cos(b.lat*R)*Math.sin((b.lng-a.lng)*R/2)**2;return 12742000*Math.asin(Math.sqrt(x));}
+function bear(a,b){const dl=(b.lng-a.lng)*R;return(Math.atan2(Math.sin(dl)*Math.cos(b.lat*R),Math.cos(a.lat*R)*Math.sin(b.lat*R)-Math.sin(a.lat*R)*Math.cos(b.lat*R)*Math.cos(dl))/R+360)%360;}
+
+function update(){
+  const d=live&&pos?Math.round(hav(pos,dest)):50;
+  $('dDist').textContent=d;
+  const mins=Math.max(1,Math.ceil(d/80));
+  if(live&&pos)$('dSub').textContent='Walking · about '+mins+' min'+(pos.acc?' · GPS ±'+Math.round(pos.acc)+' m':'');
+  let rel=0,rotY=0;
+  if(live&&pos){const b=bear(pos,dest);if(heading!=null){rel=((b-heading+540)%360)-180;}if(base!=null)rotY=-((b-base+360)%360);}
+  $('needle').style.transform='rotate('+rel+'deg)';
+  $('pivot').setAttribute('rotation','0 '+rotY+' 0');
+  $('label').setAttribute('rotation','0 '+(-rotY)+' 0');
+  $('labelText').setAttribute('value',d+' m to '+dest.name);
+  const h=$('hint'),t=$('hintText');
+  h.classList.toggle('ok',live&&pos&&d<15);
+  if(live&&pos&&d<15)t.textContent='You have arrived';
+  else if(!live||heading==null)t.textContent='Look around to find your destination';
+  else t.textContent=Math.abs(rel)<20?'Straight ahead':Math.abs(rel)>120?'Turn around':rel>0?'Turn right':'Turn left';
+}
+
+function onOrient(e){
+  const h=e.webkitCompassHeading!=null?e.webkitCompassHeading:(e.absolute&&e.alpha!=null?(360-e.alpha)%360:null);
+  if(h==null)return;heading=h;if(base==null)base=h;update();
+}
+async function startSensors(){
+  try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission){await DeviceOrientationEvent.requestPermission();}}catch(e){}
+  addEventListener('deviceorientationabsolute',onOrient,true);addEventListener('deviceorientation',onOrient,true);
+  if(live&&navigator.geolocation)navigator.geolocation.watchPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};update();},
+    ()=>{$('hintText').textContent='Location is off. Turn on GPS for live distance';},{enableHighAccuracy:true,maximumAge:3000});
+}
+
+function showError(){
+  $('introTitle').textContent='Camera access needed';
+  $('introMsg').textContent='AR cannot start without the camera. Allow camera access in your browser settings, then reload. AR also needs a secure (https) connection.';
+  document.querySelector('.sheet ul').hidden=true;
+  $('startBtn').textContent='Reload';$('startBtn').onclick=()=>location.reload();
+  $('intro').hidden=false;$('hud').hidden=$('bar').hidden=true;
+}
+addEventListener('camera-error',showError);
+
+$('startBtn').onclick=async()=>{
+  $('startBtn').textContent='Starting…';
+  await startSensors();
+  $('intro').hidden=true;$('hud').hidden=false;$('bar').hidden=false;update();
+};
+$('recal').onclick=()=>{base=heading;update();};
+$('endBtn').onclick=()=>{location.href='index.html';};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('intro').hidden)location.href='index.html';});
+update();
+</script>
 </body>
 </html>
