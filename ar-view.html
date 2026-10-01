@@ -12,15 +12,20 @@
   --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--shadow:0 6px 24px rgba(0,0,0,.28)}
 body.dark{--surface:#1a222b;--text:#e8eef4;--muted:#9aa8b6;--line:#2a343f;--bg:#10151b;--primary:#6cb2ff;--primary-text:#06223f;--danger:#ff7b7b}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--text)}
-button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+/* Fix for Camera Video Not Showing: Background must be transparent */
+html,body{height:100%;margin:0;background:transparent;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--text)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;pointer-events:auto}
 :focus-visible{outline:3px solid var(--primary);outline-offset:2px}
 [hidden]{display:none!important}
-a-scene{position:fixed!important;inset:0}
+
+/* Fix for A-Frame Scene layering */
+a-scene{position:absolute!important;inset:0;z-index:-1;}
+
 .glass{background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:var(--shadow)}
 
 /* Top card */
-.top{position:fixed;z-index:50;left:0;right:0;top:0;padding:calc(var(--sat) + 12px) 12px 0;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.top{position:fixed;z-index:50;left:0;right:0;top:0;padding:calc(var(--sat) + 12px) 12px 0;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .card{display:flex;align-items:center;gap:12px;border-radius:20px;padding:12px 14px}
 .compass{width:56px;height:56px;border-radius:50%;background:var(--bg);display:grid;place-items:center;flex:none;position:relative;border:2px solid var(--line)}
 .compass i{display:block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:26px solid var(--primary);transition:transform .25s linear}
@@ -34,15 +39,15 @@ a-scene{position:fixed!important;inset:0}
 .hint.ok{background:var(--ok);color:#fff}
 
 /* Bottom bar */
-.bottom{position:fixed;z-index:50;left:0;right:0;bottom:0;padding:12px 12px calc(var(--sab) + 16px);max-width:520px;margin:0 auto;display:flex;gap:10px}
-.btn{min-height:54px;border-radius:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 20px}
+.bottom{position:fixed;z-index:50;left:0;right:0;bottom:0;padding:12px 12px calc(var(--sab) + 16px);max-width:520px;margin:0 auto;display:flex;gap:10px;pointer-events:none}
+.btn{min-height:54px;border-radius:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 20px;pointer-events:auto}
 .btn.end{flex:1;background:var(--danger);color:#fff;box-shadow:0 6px 20px rgba(214,60,60,.4)}
 .btn.sq{width:54px;padding:0;font-size:1.1rem;color:var(--primary)}
 .btn:active{transform:scale(.97)}
 .gps{font-size:.75rem;color:var(--muted);text-align:center}
 
 /* Start / error overlay */
-.overlay{position:fixed;inset:0;z-index:100;background:rgba(8,14,22,.78);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(8,14,22,.78);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px;pointer-events:auto}
 .sheet{width:min(400px,100%);background:var(--surface);border-radius:24px;padding:26px 22px;text-align:center;box-shadow:var(--shadow)}
 .sheet .ic{width:64px;height:64px;border-radius:18px;margin:0 auto 14px;display:grid;place-items:center;font-size:1.7rem;background:color-mix(in srgb,var(--primary) 14%,transparent);color:var(--primary)}
 .sheet h2{margin:0 0 6px;font-size:1.25rem}
@@ -51,7 +56,7 @@ a-scene{position:fixed!important;inset:0}
 .sheet li{display:flex;gap:12px;align-items:center}
 .sheet li span{width:30px;height:30px;border-radius:50%;background:var(--bg);display:grid;place-items:center;flex:none}
 .sheet .btn{width:100%;background:var(--primary);color:var(--primary-text)}
-.sheet .link{display:block;margin-top:10px;color:var(--muted);font-weight:600;min-height:44px;line-height:44px}
+.sheet .link{display:block;margin-top:10px;color:var(--muted);font-weight:600;min-height:44px;line-height:44px;text-decoration:none}
 @media (max-height:520px){.sheet ul{display:none}.hint{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
